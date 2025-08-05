@@ -1,27 +1,20 @@
-FROM eclipse-temurin:17-jdk-jammy as builder
+FROM eclipse-temurin:21-jdk as build
 
-WORKDIR /workspace
-
-
-COPY pom.xml .
-RUN mvn dependency:go-offline -B
-
-
-COPY src ./src
-
-
-RUN mvn package -DskipTests -B
-
-
-FROM eclipse-temurin:17-jre-jammy
+COPY . /app
 WORKDIR /app
-RUN useradd -m -s /bin/bash springuser
-USER springuser
 
+RUN chmod +x mvnw
+RUN ./mvnw package -DskipTests
+RUN mv -f target/*.jar app.jar
 
-COPY --from=builder /workspace/target/clinic-api-0.0.1-SNAPSHOT.jar app.jar
+FROM eclipse-temurin:21-jre
 
+ARG PORT
+ENV PORT=${PORT}
 
-EXPOSE 8080
+COPY --from=build /app/app.jar .
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+RUN useradd runtime
+USER runtime
+
+ENTRYPOINT [ "java", "-Dserver.port=${PORT}", "-jar", "app.jar" ]
